@@ -69,9 +69,9 @@ final class ApiSurfaceTests: XCTestCase {
         let o = ThetaRepository.Options()
         o.iso = ThetaRepository.IsoEnum.iso200
         o.captureMode = ThetaRepository.CaptureModeEnum.image
-        o.whiteBalance = ThetaRepository.WhiteBalanceEnum.auto
+        o.whiteBalance = ThetaRepository.WhiteBalanceEnum.daylight
         XCTAssertTrue(o.iso === ThetaRepository.IsoEnum.iso200)
         XCTAssertTrue(o.captureMode === ThetaRepository.CaptureModeEnum.image)
-        XCTAssertTrue(o.whiteBalance === ThetaRepository.WhiteBalanceEnum.auto)
+        XCTAssertTrue(o.whiteBalance === ThetaRepository.WhiteBalanceEnum.daylight)
     }
 }
