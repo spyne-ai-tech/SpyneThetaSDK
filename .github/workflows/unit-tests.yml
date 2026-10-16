@@ -1,0 +1,99 @@
+name: unit-tests
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unit-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrity:
+    name: Package integrity (Node)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run integrity tests
+        run: npm test
+
+  swift-smoke:
+    name: Swift smoke tests (iOS Simulator)
+    # RISK: needs Xcode 26.x (swift-tools-version 6.2). macos-26 images ship Xcode 26.x; if the label is unavailable
+    # on your plan/org, switch to macos-15 (which also carries Xcode 26.x side by side) and re-run.
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode 26.x
+        run: |
+          set -euo pipefail
+          ls /Applications | grep -E '^Xcode' || true
+          XCODE="$(ls /Applications | grep -E '^Xcode_26[0-9._]*\.app$' | sort -V | tail -n 1 || true)"
+          if [ -z "$XCODE" ]; then
+            echo "::error::No Xcode 26.x found on this runner (swift-tools-version 6.2 needs Swift 6.2 / Xcode 26)."
+            exit 1
+          fi
+          echo "Using /Applications/$XCODE"
+          sudo xcode-select -s "/Applications/$XCODE/Contents/Developer"
+          xcodebuild -version
+          swift --version
+
+      - name: Resolve package and list schemes
+        run: |
+          set -euo pipefail
+          swift package describe --type json > /dev/null
+          xcodebuild -list 2>&1 | tee xcodebuild-list.txt
+
+      - name: Pick an available iPhone simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available | tee simctl.txt
+          NAME="$(grep -E '^[[:space:]]+iPhone [^(]+\(' simctl.txt | sed -E 's/^[[:space:]]+//; s/ \([0-9A-Fa-f-]{36}\).*$//' | grep -v -E 'SE|Air' | head -n 1 || true)"
+          if [ -z "$NAME" ]; then
+            NAME="$(grep -E '^[[:space:]]+iPhone [^(]+\(' simctl.txt | sed -E 's/^[[:space:]]+//; s/ \([0-9A-Fa-f-]{36}\).*$//' | head -n 1 || true)"
+          fi
+          if [ -z "$NAME" ]; then
+            echo "::error::No available iPhone simulator found."
+            exit 1
+          fi
+          echo "Simulator: $NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Run XCTest smoke tests
+        env:
+          SIM_NAME: ${{ steps.sim.outputs.name }}
+        run: |
+          set -euo pipefail
+          # SwiftPM exposes "<package>-Package" (all targets incl. tests) and a scheme per library product.
+          if grep -qE '^[[:space:]]*THETAClientPackage-Package[[:space:]]*$' xcodebuild-list.txt; then SCHEME="THETAClientPackage-Package"; else SCHEME="THETAClientPackage"; fi
+          echo "Scheme: $SCHEME"
+          xcodebuild test \
+            -scheme "$SCHEME" \
+            -destination "platform=iOS Simulator,name=$SIM_NAME" \
+            -skipPackagePluginValidation \
+            -resultBundlePath TestResults.xcresult \
+            | tee xcodebuild-test.log
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swift-smoke-diagnostics
+          path: |
+            TestResults.xcresult
+            xcodebuild-test.log
+            xcodebuild-list.txt
+            simctl.txt
+          if-no-files-found: ignore
+          retention-days: 7
