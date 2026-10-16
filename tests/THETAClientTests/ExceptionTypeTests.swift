@@ -18,7 +18,8 @@ final class ExceptionTypeTests: XCTestCase {
     }
 
     func testThetaRepositoryException_preservesMessage() {
-        let e = ThetaRepository.ThetaRepositoryException(message: "camera said no")
+        // ThetaRepositoryException is abstract in Kotlin (cannot be instantiated), so read the message through a concrete subclass typed as the base.
+        let e: ThetaRepository.ThetaRepositoryException = ThetaRepository.ArgumentException(message: "camera said no")
         XCTAssertEqual(e.message, "camera said no")
     }
 
@@ -42,7 +43,8 @@ final class ExceptionTypeTests: XCTestCase {
     }
 
     func testThetaRepositoryException_derivesFromKotlinRuntimeExceptionAndThrowable() {
-        let e: AnyObject = ThetaRepository.ThetaRepositoryException(message: "x")
+        // ThetaRepositoryException is abstract in Kotlin; check the chain through a concrete subclass.
+        let e: AnyObject = ThetaRepository.ArgumentException(message: "x")
         XCTAssertTrue(e is KotlinRuntimeException)
         XCTAssertTrue(e is KotlinException)
         XCTAssertTrue(e is KotlinThrowable)
