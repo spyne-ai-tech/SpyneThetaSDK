@@ -85,6 +85,14 @@ jobs:
             -resultBundlePath TestResults.xcresult \
             | tee xcodebuild-test.log
 
+      - name: Guard against a zero-test false green
+        run: |
+          set -euo pipefail
+          # Expected: 78 tests. Fail if far fewer ran (for example the test target was unlinked and the scheme exited 0).
+          N=$(grep -Eo "Executed [0-9]+ tests" xcodebuild-test.log | tail -n 1 | grep -Eo "[0-9]+" || echo 0)
+          echo "XCTest executed: $N"
+          if [ "$N" -lt 70 ]; then echo "::error::Only $N XCTest tests executed (expected 78)."; exit 1; fi
+
       - name: Upload test results
         if: failure()
         uses: actions/upload-artifact@v4

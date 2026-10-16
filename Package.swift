@@ -39,6 +39,8 @@ let package = Package(
                 // Direct dependency so `import THETAClient` resolves the binary framework's module.
                 "THETAClient",
             ],
+            // Tests live in lowercase tests/ (SwiftPM defaults to Tests/); explicit so it also resolves on case-sensitive volumes.
+            path: "tests/THETAClientTests",
             // The Kotlin/Native generated API predates Swift 6 strict concurrency; keep tests in Swift 5 mode.
             swiftSettings: [.swiftLanguageMode(.v5)]
         )

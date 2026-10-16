@@ -45,6 +45,14 @@ describe('Package.swift', () => {
     assert.equal(path.basename(XCF, '.xcframework'), 'THETAClient');
   });
 
+  test('declares the THETAClientTests testTarget with an explicit path to an existing directory', () => {
+    assert.match(active, /\.testTarget\(\s*name:\s*"THETAClientTests"/);
+    const m = active.match(/\.testTarget\([\s\S]*?path:\s*"([^"]+)"/);
+    assert.ok(m, 'testTarget must set an explicit path (SwiftPM defaults to Tests/, this repo uses tests/)');
+    assert.ok(fs.existsSync(path.join(REPO, m[1])), `${m[1]} must exist`);
+    assert.ok(fs.readdirSync(path.join(REPO, m[1])).some((f) => f.endsWith('.swift')), 'test directory must contain Swift tests');
+  });
+
   test('no active unsafeFlags (commented-out block is ignored)', () => {
     assert.doesNotMatch(active, /unsafeFlags/);
   });
